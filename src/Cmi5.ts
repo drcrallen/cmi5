@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import XAPI, {
   Agent,
   Context,
@@ -78,8 +79,8 @@ export default class Cmi5 {
     return Cmi5._xapi;
   }
 
-  constructor() {
-    this.launchParameters = this.getLaunchParametersFromLMS();
+  constructor(queryStr? : string) {
+    this.launchParameters = this.getLaunchParametersFromLMS(queryStr);
     if (!this.launchParameters.fetch) {
       throw Error("Unable to construct, no `fetch` parameter found in URL.");
     } else if (!this.launchParameters.endpoint) {
@@ -129,7 +130,7 @@ export default class Cmi5 {
 
   // Best Practice #17 – Persist AU Session State - https://aicc.github.io/CMI-5_Spec_Current/best_practices/
   public getAuthToken(): string {
-    return this.authToken;
+    return this.authToken!;
   }
 
   public getInitializedDate(): Date {
@@ -796,7 +797,7 @@ export default class Cmi5 {
     if (effectiveOptions?.score) {
       const rScore = _toResultScore(effectiveOptions?.score);
       if (this.launchData.masteryScore) {
-        if (rScore.scaled >= this.launchData.masteryScore) {
+        if ((rScore?.scaled || 0) >= this.launchData.masteryScore) {
           this.appendStatementIds(
             await this.pass(rScore, effectiveOptions),
             newStatementIds
@@ -809,7 +810,11 @@ export default class Cmi5 {
         }
       } else {
         const _setResultScore = (s: Statement): Statement => {
-          return this.setResultScore(rScore, s);
+          if(rScore) {
+            return this.setResultScore(rScore, s);
+          } else {
+            return s;
+          }
         };
         const transformProvided = effectiveOptions?.transform;
         effectiveOptions = {
@@ -841,9 +846,9 @@ export default class Cmi5 {
     toIds.push.apply(toIds, response.data);
   }
 
-  private getLaunchParametersFromLMS(): LaunchParameters {
+  private getLaunchParametersFromLMS(queryStr?: string): LaunchParameters {
     return XAPI.getSearchQueryParamsAsObject(
-      window.location.search
+      queryStr || window.location.search
     ) as LaunchParameters;
   }
 
@@ -854,7 +859,7 @@ export default class Cmi5 {
   }
 
   private getLaunchDataFromLMS(): AxiosPromise<LaunchData> {
-    return Cmi5._xapi.getState({
+    return Cmi5._xapi!.getState({
       agent: this.launchParameters.actor,
       activityId: this.launchParameters.activityId,
       stateId: "LMS.LaunchData",
@@ -863,7 +868,7 @@ export default class Cmi5 {
   }
 
   private getLearnerPreferencesFromLMS(): AxiosPromise<LearnerPreferences> {
-    return Cmi5._xapi
+    return Cmi5._xapi!
       .getAgentProfile({
         agent: this.launchParameters.actor,
         profileId: "cmi5LearnerPreferences",
@@ -934,7 +939,7 @@ export default class Cmi5 {
       options && typeof options.transform === "function"
         ? options.transform(mergedStatement)
         : mergedStatement;
-    return Cmi5._xapi.sendStatement({
+    return Cmi5._xapi!.sendStatement({
       statement: sendStatement,
     });
   }

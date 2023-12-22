@@ -11,7 +11,8 @@
     "baseUrl": ".",
     "paths": {
       "*": ["./src/*", "node_modules/*"]
-    }
+    },
+    "forceConsistentCasingInFileNames": true,
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules", "test", "**/demo"]
