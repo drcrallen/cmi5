@@ -1,9 +1,11 @@
+/* eslint-disable prettier/prettier */
 import babel from "@rollup/plugin-babel";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import pkg from "./package.json";
 import terser from "@rollup/plugin-terser";
+import esformatter from "rollup-plugin-esformatter";
 
 const input = "./src/Cmi5.ts";
 
@@ -29,7 +31,8 @@ export default [
       commonjs(), // Used for Axios import
       json(),
       babel(babelPluginOptions),
-      terser(),
+      //terser(),
+      //esformatter(),
     ],
     output: [
       {
@@ -41,6 +44,7 @@ export default [
         file: pkg.module,
         format: "esm",
         exports: "default",
+        compact: false,
       },
     ],
   },

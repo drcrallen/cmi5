@@ -79,25 +79,6 @@ export default class Cmi5 {
     return Cmi5._xapi;
   }
 
-  constructor(queryStr? : string) {
-    this.launchParameters = this.getLaunchParametersFromLMS(queryStr);
-    if (!this.launchParameters.fetch) {
-      throw Error("Unable to construct, no `fetch` parameter found in URL.");
-    } else if (!this.launchParameters.endpoint) {
-      throw Error("Unable to construct, no `endpoint` parameter found in URL");
-    } else if (!this.launchParameters.actor) {
-      throw Error("Unable to construct, no `actor` parameter found in URL.");
-    } else if (!this.launchParameters.activityId) {
-      throw Error(
-        "Unable to construct, no `activityId` parameter found in URL."
-      );
-    } else if (!this.launchParameters.registration) {
-      throw Error(
-        "Unable to construct, no `registration` parameter found in URL."
-      );
-    }
-  }
-
   public static get isCmiAvailable(): boolean {
     if (!window || typeof window !== "object") {
       return false;
@@ -143,10 +124,29 @@ export default class Cmi5 {
   }
 
   // "cmi5 defined" Statements
-  public initialize(sessionState?: {
-    authToken: string;
-    initializedDate: Date;
-  }): AxiosPromise<string[] | void> {
+  public initialize(
+    sessionState?: {
+      authToken: string;
+      initializedDate: Date;
+    },
+    queryStr?, // Defaults to window.location.search
+  ): AxiosPromise<string[] | void> {
+    this.launchParameters = this.getLaunchParametersFromLMS(queryStr);
+    if (!this.launchParameters.fetch) {
+      return Promise.reject("Unable to construct, no `fetch` parameter found in URL.");
+    } else if (!this.launchParameters.endpoint) {
+      return Promise.reject("Unable to construct, no `endpoint` parameter found in URL");
+    } else if (!this.launchParameters.actor) {
+      return Promise.reject("Unable to construct, no `actor` parameter found in URL.");
+    } else if (!this.launchParameters.activityId) {
+      return Promise.reject(
+        "Unable to construct, no `activityId` parameter found in URL."
+      );
+    } else if (!this.launchParameters.registration) {
+      return Promise.reject(
+        "Unable to construct, no `registration` parameter found in URL."
+      );
+    }
     return Promise.resolve()
       .then(() => {
         // Best Practice #17 – Persist AU Session State - https://aicc.github.io/CMI-5_Spec_Current/best_practices/
@@ -164,16 +164,21 @@ export default class Cmi5 {
           endpoint: this.launchParameters.endpoint,
           auth: `Basic ${authToken}`,
         });
+        return Promise.resolve();
+      })
+      .then(() => {
         return this.getLaunchDataFromLMS();
       })
       .then((result) => {
         this.launchData = result.data;
+        return Promise.resolve();
       })
       .then(() => {
         return this.getLearnerPreferencesFromLMS();
       })
       .then((result) => {
         this.learnerPreferences = result.data || {};
+        return Promise.resolve();
       })
       .then(() => {
         if (sessionState) {
@@ -184,6 +189,9 @@ export default class Cmi5 {
           // 9.3.2 Initialized - https://github.com/AICC/CMI-5_Spec_Current/blob/quartz/cmi5_spec.md#932-initialized
           return this.sendCmi5DefinedStatement({
             verb: Cmi5DefinedVerbs.INITIALIZED,
+          }).catch((reason) => {
+            console.debug("failed send initialized");
+            return Promise.reject(reason);
           });
         }
       });
@@ -855,7 +863,15 @@ export default class Cmi5 {
   private getAuthTokenFromLMS(
     fetchUrl: string
   ): AxiosPromise<AuthTokenResponse> {
-    return axios.post<AuthTokenResponse>(fetchUrl);
+    return axios.post<AuthTokenResponse>(fetchUrl).then((result) => {
+      if(result.data["error-code"]) {
+        return Promise.reject({
+          ...result.data,
+          "error-operation": "Failed fetching auth token",
+        });
+      }
+      return result;
+    });
   }
 
   private getLaunchDataFromLMS(): AxiosPromise<LaunchData> {
@@ -864,6 +880,9 @@ export default class Cmi5 {
       activityId: this.launchParameters.activityId,
       stateId: "LMS.LaunchData",
       registration: this.launchParameters.registration,
+    }).catch((reason) => {
+      console.debug("failed getLaunchDataFromLMS");
+      return Promise.reject(reason);
     }) as AxiosPromise<LaunchData>;
   }
 
@@ -880,7 +899,10 @@ export default class Cmi5 {
         () => {
           return {};
         }
-      ) as AxiosPromise<LearnerPreferences>;
+      ).catch((reason) => {
+        console.debug("failed agent profile fetch");
+        return Promise.reject(reason);
+      }) as AxiosPromise<LearnerPreferences>;
   }
 
   private sendCmi5DefinedStatement(
